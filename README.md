@@ -51,7 +51,6 @@ graph TD
     style F fill:#a8edea,stroke:#333,stroke-width:2px
     style G fill:#ff9a9e,stroke:#333,stroke-width:2px
     style H fill:#ff9a9e,stroke:#333,stroke-width:2px
-    style I fill:#ff9a9e,stroke:#333,stroke-width:2px
     style J fill:#f093fb,stroke:#333,stroke-width:2px
     style K fill:#ffecd2,stroke:#333,stroke-width:2px
     style L fill:#a1c4fd,stroke:#333,stroke-width:2px
