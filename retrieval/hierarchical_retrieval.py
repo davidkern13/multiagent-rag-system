@@ -1,9 +1,10 @@
 from llama_index.core.node_parser import HierarchicalNodeParser, get_leaf_nodes
-from llama_index.core import StorageContext, VectorStoreIndex
+from llama_index.core import StorageContext, VectorStoreIndex, load_index_from_storage
 from llama_index.core.retrievers import AutoMergingRetriever
 from llama_index.vector_stores.chroma import ChromaVectorStore
 import chromadb
 import os
+import pickle
 
 from retrieval.metadata_extractor import (
     extract_doc_type,
@@ -14,7 +15,51 @@ from retrieval.metadata_extractor import (
 
 def build_hierarchical_retriever(docs, embed_model, top_k: int = 15):
     chroma_path = "./chroma_storage"
+    docstore_path = "./docstore_hierarchical"
     collection_name = "insurance_hierarchical"
+
+    # Check if both ChromaDB and docstore exist
+    chroma_exists = os.path.exists(chroma_path)
+    docstore_exists = os.path.exists(docstore_path)
+
+    if chroma_exists and docstore_exists:
+        print("[INFO] Found existing storage, loading from disk...")
+
+        try:
+            # Load ChromaDB
+            chroma_client = chromadb.PersistentClient(path=chroma_path)
+            chroma_collection = chroma_client.get_collection(name=collection_name)
+            vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
+
+            # Load storage context WITH persisted docstore
+            storage_context = StorageContext.from_defaults(
+                vector_store=vector_store, persist_dir=docstore_path
+            )
+
+            # Load index from storage
+            index = load_index_from_storage(
+                storage_context,
+                embed_model=embed_model,
+            )
+
+            print("[INFO] ✅ Loaded existing index successfully! No chunking needed.")
+
+            return AutoMergingRetriever(
+                index.as_retriever(similarity_top_k=top_k),
+                storage_context=storage_context,
+                verbose=False,
+            )
+
+        except Exception as e:
+            print(f"[WARN] Failed to load existing storage: {e}")
+            print("[INFO] Rebuilding index from scratch...")
+
+    else:
+        print("[INFO] No existing storage found, creating new index...")
+
+    # ==========================================
+    # CREATE NEW INDEX FROM SCRATCH
+    # ==========================================
 
     # Extract entities dynamically from the documents
     print("[INFO] Extracting entities from documents...")
@@ -26,67 +71,8 @@ def build_hierarchical_retriever(docs, embed_model, top_k: int = 15):
         f"[INFO] Found {len(all_entities)} unique entities: {list(all_entities)[:10]}..."
     )
 
-    # Check if ChromaDB already exists
-    if os.path.exists(chroma_path):
-        print("[INFO] Found existing ChromaDB storage, loading...")
-
-        try:
-            # Load existing ChromaDB
-            chroma_client = chromadb.PersistentClient(path=chroma_path)
-            chroma_collection = chroma_client.get_collection(name=collection_name)
-            vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
-
-            # Create storage context (docstore in memory, vectors from ChromaDB)
-            storage_context = StorageContext.from_defaults(vector_store=vector_store)
-
-            # Rebuild nodes for docstore (needed for AutoMergingRetriever)
-            parser = HierarchicalNodeParser.from_defaults(
-                chunk_sizes=[1024, 512, 256],
-                chunk_overlap=4,
-            )
-            nodes = parser.get_nodes_from_documents(docs)
-            leaf_nodes = get_leaf_nodes(nodes)
-
-            # Add metadata
-            for node in leaf_nodes:
-                text = node.get_content()
-                node.metadata.update(
-                    {
-                        "doc_type": extract_doc_type(text),
-                        "section_title": extract_section_title(text),
-                        "parent_id": (
-                            node.parent_node.node_id if node.parent_node else None
-                        ),
-                    }
-                )
-
-            # Add nodes to in-memory docstore
-            storage_context.docstore.add_documents(nodes)
-
-            # Create index (uses existing vectors from ChromaDB)
-            index = VectorStoreIndex(
-                leaf_nodes,
-                storage_context=storage_context,
-                embed_model=embed_model,
-                show_progress=False,
-            )
-
-            print("[INFO] Loaded existing index successfully!")
-
-            return AutoMergingRetriever(
-                index.as_retriever(similarity_top_k=top_k),
-                storage_context=storage_context,
-                verbose=False,
-            )
-
-        except Exception as e:
-            print(f"[WARN] Failed to load existing index: {e}")
-            print("[INFO] Creating new index...")
-
-    else:
-        print("[INFO] No existing ChromaDB found, creating new index...")
-
-    # Create new index from scratch
+    # Create hierarchical nodes
+    print("[INFO] Creating hierarchical chunks...")
     parser = HierarchicalNodeParser.from_defaults(
         chunk_sizes=[1024, 512, 256],
         chunk_overlap=4,
@@ -95,6 +81,8 @@ def build_hierarchical_retriever(docs, embed_model, top_k: int = 15):
     nodes = parser.get_nodes_from_documents(docs)
     leaf_nodes = get_leaf_nodes(nodes)
 
+    # Add metadata
+    print("[INFO] Adding metadata to nodes...")
     for node in leaf_nodes:
         text = node.get_content()
         node.metadata.update(
@@ -105,7 +93,8 @@ def build_hierarchical_retriever(docs, embed_model, top_k: int = 15):
             }
         )
 
-    # Create ChromaDB (only storage location)
+    # Create ChromaDB
+    print("[INFO] Creating ChromaDB...")
     chroma_client = chromadb.PersistentClient(path=chroma_path)
 
     # Delete old collection if exists
@@ -118,19 +107,26 @@ def build_hierarchical_retriever(docs, embed_model, top_k: int = 15):
     chroma_collection = chroma_client.create_collection(name=collection_name)
     vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
 
-    # Create storage context (ChromaDB for vectors, in-memory docstore)
+    # Create storage context
     storage_context = StorageContext.from_defaults(vector_store=vector_store)
     storage_context.docstore.add_documents(nodes)
 
     # Create index
+    print("[INFO] Building vector index...")
     index = VectorStoreIndex(
         leaf_nodes,
         storage_context=storage_context,
         embed_model=embed_model,
-        show_progress=False,
+        show_progress=True,
     )
 
-    print(f"[INFO] Created new index with ChromaDB at {chroma_path}")
+    # ✅ PERSIST DOCSTORE TO DISK
+    print(f"[INFO] Persisting docstore to {docstore_path}...")
+    storage_context.persist(persist_dir=docstore_path)
+
+    print(f"[INFO] ✅ Created and persisted new index!")
+    print(f"[INFO]    - ChromaDB: {chroma_path}")
+    print(f"[INFO]    - Docstore: {docstore_path}")
 
     return AutoMergingRetriever(
         index.as_retriever(similarity_top_k=top_k),

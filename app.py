@@ -246,25 +246,14 @@ with col_chart:
             [{"chart": chartOptions, "series": seriesCandlestick}], "candlestick"
         )
 
-        # Show stats
-        st.caption(f"📊 Showing {len(data)} days")
-
-        with st.expander("Statistics"):
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                st.metric("High", f"${max(d['high'] for d in data):.2f}")
-            with col2:
-                st.metric("Low", f"${min(d['low'] for d in data):.2f}")
-            with col3:
-                max_pct = max(d["change_pct"] for d in data)
-                st.metric("Max Change", f"+{max_pct:.2f}%")
-
     else:
         st.info("👈 Ask a question to see live chart!")
         st.caption("Try asking:")
         st.code("What was the highest daily percentage increase?")
         st.code("Show me trading data for April")
         st.code("What happened on 2025-04-09?")
+        st.code("Compare April vs March performance statistically")
+        st.code("Summarize the market trend over the full year")
 
 # Sidebar
 with st.sidebar:

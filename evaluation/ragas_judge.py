@@ -29,7 +29,7 @@ def run_ragas_evaluation(questions, answers, contexts, ground_truths):
     """
 
     # Configure Ragas to use Ollama
-    llm = Ollama(model="gemma3:4b", temperature=0.3)
+    llm = Ollama(model="llama3.2:3b", temperature=0.3)
     embeddings = OllamaEmbeddings(model="mxbai-embed-large", embed_batch_size=4)
 
     # Prepare data in Ragas format

@@ -10,9 +10,9 @@ venv/
 
 # Data & Storage
 chroma_storage/
-chroma_storage_summary/
+docstore_summary/
 storage/
-storage_summary/
+docstore_hierarchical/
 *.db
 *.sqlite
 
