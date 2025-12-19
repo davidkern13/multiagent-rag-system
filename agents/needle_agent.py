@@ -99,7 +99,7 @@ If multiple values exist, compare them and provide the most accurate answer.
         is_statistical = self._is_statistical_query(query)
 
         # Retrieve contexts - more for statistical queries
-        retrieval_count = 241 if is_statistical else 30
+        retrieval_count = 20 if is_statistical else 15
         nodes = self.retriever.retrieve(query)
 
         # Get more nodes if needed for statistical queries
@@ -114,7 +114,7 @@ If multiple values exist, compare them and provide the most accurate answer.
             print(f"📊 Retrieved {len(contexts)} contexts")
 
         # Lost-in-the-middle mitigation - but keep more for statistical queries
-        MAX_CTX = 124 if is_statistical else 30
+        MAX_CTX = 20 if is_statistical else 15
         if len(contexts) > MAX_CTX:
             half = MAX_CTX // 2
             contexts = contexts[:half] + contexts[-half:]
@@ -167,3 +167,61 @@ YOUR ANSWER:"""
         response = self.llm.complete(prompt)
 
         return response.text.strip(), contexts, response
+
+    def answer_stream(self, query: str):
+        """
+        Stream answer for real-time display
+        Returns: generator of (text_chunk, contexts, is_final)
+        """
+        # Check if this is a statistical query requiring more contexts
+        is_statistical = self._is_statistical_query(query)
+
+        # Retrieve contexts
+        retrieval_count = 20 if is_statistical else 15
+        nodes = self.retriever.retrieve(query)
+
+        if is_statistical and len(nodes) < retrieval_count:
+            contexts = [n.get_content() for n in nodes]
+        else:
+            contexts = [n.get_content() for n in nodes[:retrieval_count]]
+
+        # Lost-in-the-middle mitigation
+        MAX_CTX = 20 if is_statistical else 15
+        if len(contexts) > MAX_CTX:
+            half = MAX_CTX // 2
+            contexts = contexts[:half] + contexts[-half:]
+
+        # Build context text
+        context_text = "\n\n".join(contexts)
+
+        # Get specific instructions
+        specific_instruction = self._get_query_instruction(query)
+
+        # Build prompt
+        prompt = f"""You are a financial data analysis assistant specializing in trading data.
+
+{specific_instruction}
+
+CONTEXT (Multiple Trading Days):
+{context_text}
+
+QUESTION: {query}
+
+GENERAL INSTRUCTIONS:
+- Provide a complete answer with relevant details (date, numbers, context)
+- Be specific and cite exact information from the context
+- For statistical queries (highest/lowest/average), you MUST compare ALL data points
+
+YOUR ANSWER:"""
+
+        # Stream response from LLM
+        response_stream = self.llm.stream_complete(prompt)
+
+        full_text = ""
+        for chunk in response_stream:
+            delta = chunk.delta
+            full_text += delta
+            yield delta, contexts, False
+
+        # Final yield with complete response
+        yield full_text, contexts, True

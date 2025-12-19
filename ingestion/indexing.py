@@ -2,7 +2,6 @@
 
 from ingestion.loader import load_pdf
 from core.embeddings import get_embedding_model
-from core.llm_provider import get_llm
 
 from retrieval.hierarchical_retrieval import build_hierarchical_retriever
 from retrieval.summary_retrieval import build_summary_index
@@ -19,7 +18,6 @@ def build_all_indexes(pdf_path: str):
 
     # 2. Load providers
     embed_model = get_embedding_model()
-    llm = get_llm()
 
     # 3. Build indexes
     hierarchical_retriever = build_hierarchical_retriever(

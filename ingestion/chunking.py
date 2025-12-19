@@ -4,12 +4,12 @@ from llama_index.core.node_parser import HierarchicalNodeParser, get_leaf_nodes
 def build_hierarchical_nodes(documents):
     """
     Creates a hierarchical chunk structure:
-    small -> medium -> large
+    Large (512) -> Medium (256) -> Small (128)
     """
 
     parser = HierarchicalNodeParser.from_defaults(
-        chunk_sizes=[256, 512, 1024],
-        chunk_overlap=50,
+        chunk_sizes=[512, 256, 128],
+        chunk_overlap=20,
     )
 
     nodes = parser.get_nodes_from_documents(documents)

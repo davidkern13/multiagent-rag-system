@@ -14,7 +14,7 @@ def extract_timestamp(text: str):
     return None
 
 
-def extract_entities_from_text(text: str, top_n: int = 50):
+def extract_entities_from_text(text: str, top_n: int = 10):
     """
     Dynamically extract entities from text.
 
@@ -95,7 +95,7 @@ def extract_entities(text: str):
     Legacy function - now calls dynamic extraction.
     Kept for backward compatibility.
     """
-    return extract_entities_from_text(text, top_n=20)
+    return extract_entities_from_text(text, top_n=10)
 
 
 def extract_doc_type(text: str) -> str:

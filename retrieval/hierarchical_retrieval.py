@@ -1,19 +1,18 @@
-from llama_index.core.node_parser import HierarchicalNodeParser, get_leaf_nodes
 from llama_index.core import StorageContext, VectorStoreIndex, load_index_from_storage
 from llama_index.core.retrievers import AutoMergingRetriever
 from llama_index.vector_stores.chroma import ChromaVectorStore
 import chromadb
 import os
-import pickle
 
 from retrieval.metadata_extractor import (
     extract_doc_type,
     extract_section_title,
     extract_entities_from_text,
 )
+from ingestion.chunking import build_hierarchical_nodes
 
 
-def build_hierarchical_retriever(docs, embed_model, top_k: int = 15):
+def build_hierarchical_retriever(docs, embed_model, top_k: int = 40):
     chroma_path = "./chroma_storage"
     docstore_path = "./docstore_hierarchical"
     collection_name = "insurance_hierarchical"
@@ -71,15 +70,9 @@ def build_hierarchical_retriever(docs, embed_model, top_k: int = 15):
         f"[INFO] Found {len(all_entities)} unique entities: {list(all_entities)[:10]}..."
     )
 
-    # Create hierarchical nodes
-    print("[INFO] Creating hierarchical chunks...")
-    parser = HierarchicalNodeParser.from_defaults(
-        chunk_sizes=[1024, 512, 256],
-        chunk_overlap=4,
-    )
-
-    nodes = parser.get_nodes_from_documents(docs)
-    leaf_nodes = get_leaf_nodes(nodes)
+    # ✅ Use chunking module for consistent hierarchical node creation
+    print("[INFO] Creating hierarchical chunks using chunking module...")
+    nodes, leaf_nodes = build_hierarchical_nodes(docs)
 
     # Add metadata
     print("[INFO] Adding metadata to nodes...")

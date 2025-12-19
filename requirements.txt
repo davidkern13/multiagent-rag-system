@@ -22,4 +22,3 @@ langchain-community
 # Utilities
 python-dateutil 
 pandas  
-streamlit-lightweight-charts
