@@ -385,7 +385,7 @@ Runs custom LLM-as-a-judge evaluation on test suite
 .
 ├── app.py                          # Main Streamlit UI
 ├── agents/
-│   ├── manager_agent.py            # Router with keyword classification
+│   ├── manager_agent.py            # Orchestrator, Router and Classification
 │   ├── needle_agent.py             # Precise queries (top_k=40)
 │   └── summarization_agent.py      # High-level summaries (top_k=5)
 ├── core/
