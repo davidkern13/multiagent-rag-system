@@ -428,4 +428,5 @@ Runs custom LLM-as-a-judge evaluation on test suite
 
 **Author:** David Kern  
 **Course:** GenAI + Agents  
+**Disclaimer:** This project is for academic and educational purposes only and does not constitute financial or investment advice. 
 **Date:** December 2025
